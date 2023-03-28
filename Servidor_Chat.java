@@ -9,20 +9,15 @@ class Servidor_Chat
 			throws IOException, InterruptedException
 	{
 		int porta			= 4381;
+		int max_espera_requisao		= 5;
 		ServerSocket servidor_chat	= new ServerSocket(porta);
 		Gestor_Conexoes gestao_chat	= new Gestor_Conexoes(servidor_chat);
 
-		servidor_chat.setSoTimeout(5 * 1000);
+		servidor_chat.setSoTimeout(max_espera_requisao * 1000);
 		System.out.println("App de Conversacoes");
 		System.out.println("______________________________________________");
 		gestao_chat.start();
-
-		do
-		{
-			Thread.sleep(3 * 1000);
-		}
-		while(Conexao.activeCount() != 1);
-
+		gestao_chat.join();
 		System.out.println("______________________________________________");
 		System.out.println("Fim do Bate-papo!");
 
@@ -41,7 +36,7 @@ class Gestor_Conexoes extends Thread
 
 	public void run()
 	{
-		while(Conexao.activeCount() < 3)
+		while(Conexao.con_ativas() == 0)
 		{
 			try
 			{
@@ -50,7 +45,7 @@ class Gestor_Conexoes extends Thread
 			catch (Exception e) {}
 		}
 
-		while(Conexao.activeCount() != 2)
+		while(Conexao.con_ativas() != 0)
 		{
 			try
 			{
@@ -63,20 +58,22 @@ class Gestor_Conexoes extends Thread
 
 class Conexao extends Thread
 {
+	private static int ativas = 0;
 	private Socket cliente;
 
 	public Conexao(Socket endereco_cliente)
 	{
 		this.cliente = endereco_cliente;
 		this.start();
+		Conexao.ativas++;
 	}
 
 	public void run()
 	{
 		try
 		{
-			Scanner msg = new Scanner(this.cliente.getInputStream());
-			String ip_cliente = this.cliente.getInetAddress().getHostAddress();
+			Scanner msg		= new Scanner(this.cliente.getInputStream());
+			String ip_cliente	= this.cliente.getInetAddress().getHostAddress();
 
 			System.out.println(ip_cliente + " se conectou.");
 
@@ -86,10 +83,16 @@ class Conexao extends Thread
 			System.out.println(ip_cliente + " se desconectou.");
 			msg.close();
 			this.cliente.close();
+			Conexao.ativas--;
 		}
 		catch(IOException e)
 		{
 			e.printStackTrace();
 		}
+	}
+
+	public static int con_ativas()
+	{
+		return Conexao.ativas;
 	}
 }
